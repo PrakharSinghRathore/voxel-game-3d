@@ -3,7 +3,7 @@ export const CHUNK_HEIGHT = 64;
 export const SEA_LEVEL = 22;
 export const RENDER_DISTANCE = 6;
 export const MAX_LOADED_CHUNKS = 200;
-export const MAX_DIRTY_PER_FRAME = 2;
+export const MAX_DIRTY_PER_FRAME = 8;
 export const LOD_DISTANCE = 4;
 
 // Gravity

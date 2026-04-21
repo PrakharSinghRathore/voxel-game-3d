@@ -108,11 +108,8 @@ export class GameEngine {
     this.chunkRenderer = new ChunkRenderer(this.renderer.mainScene, this.assetManager);
     this.postProcess = new PostProcess();
 
-    // Ambient light for scene
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
-    this.renderer.mainScene.add(ambientLight);
-
-    // Add point lights pool
+    // Ambient light is already added by DayNightCycle
+    // Add point lights pool for glowstone/lava effects
     for (let i = 0; i < 8; i++) {
       const light = new THREE.PointLight(0xFF8F00, 0, 15);
       this.renderer.mainScene.add(light);
@@ -121,16 +118,13 @@ export class GameEngine {
     // Chunk worker
     this.chunkWorker = createChunkWorker();
     this.chunkWorker.onmessage = (e) => {
-      const { positions, normals, uvs, colors, indices, waterPositions, waterNormals, waterUvs, waterIndices } = e.data;
-      // Find which chunk this is for
-      for (const [key] of this.pendingMeshes) {
-        this.pendingMeshes.delete(key);
-        this.chunkRenderer.uploadChunk(key, {
-          positions, normals, uvs, colors, indices,
-          waterPositions, waterNormals, waterUvs, waterIndices,
-        }, this.waterRenderer.getMaterial());
-        break;
-      }
+      const { chunkX, chunkZ, positions, normals, uvs, colors, indices, waterPositions, waterNormals, waterUvs, waterIndices } = e.data;
+      const key = `${chunkX},${chunkZ}`;
+      this.pendingMeshes.delete(key);
+      this.chunkRenderer.uploadChunk(key, {
+        positions, normals, uvs, colors, indices,
+        waterPositions, waterNormals, waterUvs, waterIndices,
+      }, this.waterRenderer.getMaterial());
     };
   }
 
@@ -144,7 +138,7 @@ export class GameEngine {
 
     // Create player
     this.player = new Player((wx, wy, wz) => this.worldManager!.getBlock(wx, wy, wz));
-    this.player.position = { x: 0, y: 45, z: 0 };
+    this.player.position = { x: 8, y: 45, z: 8 };
 
     // Player systems
     this.survivalStats = new SurvivalStats();
@@ -152,6 +146,11 @@ export class GameEngine {
     this.camera = new Camera(this.player, this.inputManager, this.renderer);
     this.blockInteraction = new BlockInteraction(this.player, this.inputManager, this.worldManager);
     this.blockInteraction.setSurvivalStats(this.survivalStats);
+
+    // Set initial camera position to player eye level
+    const eye = this.player.getEyePosition();
+    this.renderer.setMainCameraPosition(eye.x, eye.y, eye.z);
+    this.renderer.setMainCameraRotation(this.player.yaw, this.player.pitch);
 
     // Entities
     this.entityManager = new EntityManager(
@@ -183,8 +182,12 @@ export class GameEngine {
     this.gameState = 'playing';
     this.onStateChange?.('playing');
 
-    // Initial chunk load
+    // Initial chunk load - generate all chunks first, then send to worker
     this.worldManager.update(this.player.position.x, this.player.position.z);
+    // Keep loading chunks for a few more frames worth
+    for (let i = 0; i < 5; i++) {
+      this.worldManager.update(this.player.position.x, this.player.position.z);
+    }
     this.rebuildAllVisibleChunks();
 
     // Start game loop
@@ -336,7 +339,7 @@ export class GameEngine {
     this.particleSystem.update(dt);
 
     const sunDir = this.dayNightCycle.getSunDirection();
-    this.skyRenderer.update(this.elapsed, sunDir, this.dayNightCycle.getDayProgress());
+    this.skyRenderer.update(this.elapsed, sunDir, this.dayNightCycle.getDayProgress(), this.renderer.mainCamera.position);
     this.waterRenderer.updateUniforms(
       this.elapsed,
       this.renderer.mainCamera.position,
@@ -379,8 +382,11 @@ export class GameEngine {
   respawn(): void {
     this.survivalStats?.respawn();
     if (this.player) {
-      this.player.position = { x: 0, y: 45, z: 0 };
+      this.player.position = { x: 8, y: 45, z: 8 };
       this.player.velocity = { x: 0, y: 0, z: 0 };
+      const eye = this.player.getEyePosition();
+      this.renderer.setMainCameraPosition(eye.x, eye.y, eye.z);
+      this.renderer.setMainCameraRotation(this.player.yaw, this.player.pitch);
     }
     this.gameState = 'playing';
     this.onStateChange?.('playing');

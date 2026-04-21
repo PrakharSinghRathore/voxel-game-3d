@@ -7,7 +7,6 @@
 // We inline the worker code as a blob URL since Vite worker imports can be tricky
 
 const workerCode = `
-import { CHUNK_SIZE, CHUNK_HEIGHT, ATLAS_TILES } from '../world/constants';
 // Since this is a worker, we need to inline the logic
 
 const CHUNK_SIZE = 16;
@@ -39,7 +38,7 @@ const FACE_NORMALS = [
 const BASE_UVS = [[0,0],[0,1],[1,1],[1,0]];
 
 // Block properties (simplified for worker)
-const TRANSPARENT_BLOCKS = new Set([0, 7, 12, 13, 22, 23, 25]);
+const TRANSPARENT_BLOCKS = new Set([0, 7, 11, 12, 13, 22, 23, 25]);
 const SOLID_BLOCKS = new Set([1,2,3,4,5,6,8,9,10,14,15,16,17,18,19,20,21,24,26]);
 
 function isTransparent(id) { return TRANSPARENT_BLOCKS.has(id); }
@@ -69,7 +68,7 @@ const ATLAS_MAP = {
   6: [6,0], 7: [7,0], 8: [8,0], 9: [9,0], 10: [10,0], 11: [11,0],
   12: [0,0], 13: [13,0], 14: [14,0], 15: [15,0], 16: [0,1],
   17: [1,1], 18: [2,1], 19: [3,1], 20: [4,1], 21: [5,1], 22: [6,1],
-  23: [7,1], 24: [8,1], 25: [9,1],
+  23: [7,1], 24: [8,1], 25: [9,1], 26: [10,1],
 };
 const SIDE_MAP = { 1: [1,0] }; // grass side
 const BOTTOM_MAP = { 1: [2,0] }; // grass bottom
@@ -178,19 +177,32 @@ self.onmessage = function(e) {
     }
   }
 
+  // Create typed arrays FIRST, then transfer their buffers
+  const posArr = new Float32Array(positions);
+  const normArr = new Float32Array(normals);
+  const uvArr = new Float32Array(uvs);
+  const colorArr = new Float32Array(colors);
+  const idxArr = new Uint32Array(indices);
+  const wPosArr = new Float32Array(waterPositions);
+  const wNormArr = new Float32Array(waterNormals);
+  const wUvArr = new Float32Array(waterUvs);
+  const wIdxArr = new Uint32Array(waterIndices);
+
   self.postMessage({
-    positions: new Float32Array(positions),
-    normals: new Float32Array(normals),
-    uvs: new Float32Array(uvs),
-    colors: new Float32Array(colors),
-    indices: new Uint32Array(indices),
-    waterPositions: new Float32Array(waterPositions),
-    waterNormals: new Float32Array(waterNormals),
-    waterUvs: new Float32Array(waterUvs),
-    waterIndices: new Uint32Array(waterIndices),
+    chunkX: chunkX,
+    chunkZ: chunkZ,
+    positions: posArr,
+    normals: normArr,
+    uvs: uvArr,
+    colors: colorArr,
+    indices: idxArr,
+    waterPositions: wPosArr,
+    waterNormals: wNormArr,
+    waterUvs: wUvArr,
+    waterIndices: wIdxArr,
   }, [
-    positions.buffer, normals.buffer, uvs.buffer, colors.buffer, indices.buffer,
-    waterPositions.buffer, waterNormals.buffer, waterUvs.buffer, waterIndices.buffer,
+    posArr.buffer, normArr.buffer, uvArr.buffer, colorArr.buffer, idxArr.buffer,
+    wPosArr.buffer, wNormArr.buffer, wUvArr.buffer, wIdxArr.buffer,
   ]);
 };
 `;

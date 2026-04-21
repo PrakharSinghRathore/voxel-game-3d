@@ -8,11 +8,14 @@ export class DayNightCycle {
   private elapsed: number = 0;
 
   constructor(scene: THREE.Scene) {
-    this.sunLight = new THREE.DirectionalLight(0xFFF5E0, 1.0);
+    this.sunLight = new THREE.DirectionalLight(0xFFF5E0, 1.2);
     this.sunLight.position.set(0, 100, 0);
     scene.add(this.sunLight);
     this.ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
     scene.add(this.ambientLight);
+    // Add hemisphere light for better voxel visibility
+    const hemiLight = new THREE.HemisphereLight(0x87CEEB, 0x555555, 0.4);
+    scene.add(hemiLight);
   }
 
   update(dt: number): void {

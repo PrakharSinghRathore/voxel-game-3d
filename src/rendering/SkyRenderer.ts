@@ -65,9 +65,15 @@ export class SkyRenderer {
     scene.add(this.starField);
   }
 
-  update(elapsed: number, sunDir: THREE.Vector3, dayProgress: number): void {
+  update(elapsed: number, sunDir: THREE.Vector3, dayProgress: number, cameraPos?: THREE.Vector3): void {
     this.uniforms.uTime.value = elapsed;
     this.uniforms.uSunDir.value.copy(sunDir);
+
+    // Keep sky sphere centered on camera so it never clips
+    if (cameraPos) {
+      this.skyMesh.position.set(cameraPos.x, cameraPos.y, cameraPos.z);
+      this.starField.position.set(cameraPos.x, cameraPos.y, cameraPos.z);
+    }
 
     // Adjust sky colors based on time of day
     const sunHeight = sunDir.y;
