@@ -18,6 +18,7 @@ import { Camera } from '../player/Camera';
 import { BlockInteraction } from '../player/BlockInteraction';
 import { SurvivalStats } from '../player/SurvivalStats';
 import { EntityManager } from '../entities/EntityManager';
+import { ItemDropManager } from '../entities/ItemDropManager';
 import { BulletPool } from '../combat/BulletPool';
 import { WeaponManager } from '../combat/WeaponManager';
 import { DamageSystem } from '../combat/DamageSystem';
@@ -33,6 +34,12 @@ import { initNoise, setSeed } from '../utils/noise';
 // ═══════════════════════════════
 
 export type GameState = 'menu' | 'playing' | 'inventory' | 'dead';
+
+export interface PickupNotification {
+  id: number;
+  count: number;
+  time: number;
+}
 
 export class GameEngine {
   // Rendering
@@ -61,6 +68,7 @@ export class GameEngine {
 
   // Entities & Combat
   private entityManager: EntityManager | null = null;
+  private itemDropManager: ItemDropManager | null = null;
   private bulletPool: BulletPool | null = null;
   private weaponManager: WeaponManager | null = null;
   private damageSystem: DamageSystem | null = null;
@@ -83,9 +91,13 @@ export class GameEngine {
   private chunkWorker: Worker | null = null;
   private pendingMeshes: Map<string, boolean> = new Map();
 
+  // Pickup notifications
+  pickupNotifications: PickupNotification[] = [];
+
   // Callbacks for React
   onStateChange: ((state: GameState) => void) | null = null;
   onStatsUpdate: ((stats: { health: number; hunger: number; thirst: number; stamina: number; temperature: number; mana: number; maxMana: number }) => void) | null = null;
+  onPickupNotification: ((notifications: PickupNotification[]) => void) | null = null;
 
   constructor() {
     this.renderer = new Renderer();
@@ -153,11 +165,26 @@ export class GameEngine {
     this.camera = new Camera(this.player, this.inputManager, this.renderer);
     this.blockInteraction = new BlockInteraction(this.player, this.inputManager, this.worldManager);
     this.blockInteraction.setSurvivalStats(this.survivalStats);
+    this.blockInteraction.setParticleSystem(this.particleSystem);
 
     // Set initial camera position to player eye level
     const eye = this.player.getEyePosition();
     this.renderer.setMainCameraPosition(eye.x, eye.y, eye.z);
     this.renderer.setMainCameraRotation(this.player.yaw, this.player.pitch);
+
+    // Item Drop Manager — handles dropped items and pickup
+    this.itemDropManager = new ItemDropManager(
+      this.renderer.mainScene,
+      (wx, wy, wz) => this.worldManager!.getBlock(wx, wy, wz)
+    );
+    this.itemDropManager.setOnItemPickup((id, count) => {
+      // Add to inventory
+      useInventoryStore.getState().addItem(id, count);
+      // Show pickup notification
+      this.pickupNotifications.push({ id, count, time: this.elapsed });
+      this.onPickupNotification?.(this.pickupNotifications);
+    });
+    this.blockInteraction.setItemDropManager(this.itemDropManager);
 
     // Entities
     this.entityManager = new EntityManager(
@@ -165,6 +192,19 @@ export class GameEngine {
       (wx, wy, wz) => this.worldManager!.getBlock(wx, wy, wz)
     );
     this.entityManager.setPlayerPosition(this.player.position);
+    // When creatures die, drop items
+    this.entityManager.setOnLootDrop((itemId, count) => {
+      if (this.player && this.itemDropManager) {
+        // Drop at player's feet for simplicity
+        this.itemDropManager.dropItem(
+          itemId, count,
+          this.player.position.x,
+          this.player.position.y + 1,
+          this.player.position.z,
+          (Math.random() - 0.5) * 2, 2, (Math.random() - 0.5) * 2
+        );
+      }
+    });
 
     // Combat
     this.bulletPool = new BulletPool(this.renderer.mainScene);
@@ -222,6 +262,10 @@ export class GameEngine {
         this.survivalStats.temperature = data.player.stats.temperature;
         this.survivalStats.mana = data.player.stats.mana;
       }
+      // Restore inventory
+      if (data.inventory) {
+        useInventoryStore.getState().setSlots(data.inventory);
+      }
     });
   }
 
@@ -234,6 +278,9 @@ export class GameEngine {
     const dt = Math.min(delta, 0.05); // Cap at 50ms
 
     this.elapsed += dt;
+
+    // Clean old pickup notifications
+    this.pickupNotifications = this.pickupNotifications.filter(n => this.elapsed - n.time < 2.0);
 
     // Input
     this.inputManager.flush();
@@ -276,6 +323,16 @@ export class GameEngine {
 
       // Update block interaction
       this.blockInteraction?.update(dt);
+
+      // Update item drops — check pickup
+      if (this.itemDropManager && this.player) {
+        this.itemDropManager.update(
+          dt,
+          this.player.position.x,
+          this.player.position.y + 0.9,
+          this.player.position.z
+        );
+      }
 
       // Update survival stats
       if (this.survivalStats && this.player) {

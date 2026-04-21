@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useInventoryStore } from '../inventory/InventoryStore';
+import { getItemName, getItemColor } from '../inventory/ItemDefs';
 
 interface HUDProps {
   health: number;
@@ -11,9 +12,10 @@ interface HUDProps {
   maxMana: number;
   hasStaff: boolean;
   breakProgress: number;
+  pickupNotifications: { id: number; count: number; time: number }[];
 }
 
-export const HUD: React.FC<HUDProps> = ({ health, hunger, thirst, stamina, temperature, mana, maxMana, hasStaff, breakProgress }) => {
+export const HUD: React.FC<HUDProps> = ({ health, hunger, thirst, stamina, temperature, mana, maxMana, hasStaff, breakProgress, pickupNotifications }) => {
   const { slots, selected } = useInventoryStore();
 
   const Bar: React.FC<{ value: number; max: number; color: string; icon: string }> = ({ value, max, color, icon }) => (
@@ -24,6 +26,8 @@ export const HUD: React.FC<HUDProps> = ({ health, hunger, thirst, stamina, tempe
       </div>
     </div>
   );
+
+  const selectedItem = slots[selected];
 
   return (
     <div className="fixed inset-0 pointer-events-none z-20" style={{ fontFamily: 'monospace' }}>
@@ -47,6 +51,20 @@ export const HUD: React.FC<HUDProps> = ({ health, hunger, thirst, stamina, tempe
         </div>
       )}
 
+      {/* Selected item name */}
+      {selectedItem && (
+        <div className="absolute bottom-20 left-1/2 transform -translate-x-1/2 text-white text-sm bg-black bg-opacity-50 px-3 py-1 rounded">
+          {getItemName(selectedItem.id)} {selectedItem.count > 1 ? `x${selectedItem.count}` : ''}
+        </div>
+      )}
+
+      {/* Item pickup notifications */}
+      <div className="absolute bottom-32 left-1/2 transform -translate-x-1/2 flex flex-col items-center gap-1">
+        {pickupNotifications.slice(-5).map((notif, i) => (
+          <PickupNotification key={notif.time} id={notif.id} count={notif.count} index={i} />
+        ))}
+      </div>
+
       {/* Hotbar - bottom center */}
       <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-1">
         {slots.slice(0, 9).map((slot, i) => (
@@ -61,16 +79,36 @@ export const HUD: React.FC<HUDProps> = ({ health, hunger, thirst, stamina, tempe
           </div>
         ))}
       </div>
+
+      {/* Controls hint */}
+      <div className="absolute bottom-4 right-4 text-gray-500 text-xs space-y-0.5">
+        <div>LMB: Mine | RMB: Place</div>
+        <div>Q: Drop | Tab: Inventory</div>
+        <div>WASD: Move | Space: Jump</div>
+      </div>
     </div>
   );
 };
 
-function getItemColor(id: number): string {
-  const colors: Record<number, string> = {
-    1: '#4CAF50', 2: '#795548', 3: '#9E9E9E', 4: '#FDD835', 5: '#E8C86A',
-    6: '#FAFAFA', 7: '#B3E5FC', 8: '#4E342E', 9: '#7B1FA2', 10: '#FF8F00',
-    14: '#6D4C41', 15: '#2E7D32', 16: '#212121', 17: '#616161', 101: '#C0C0C0',
-    102: '#888888', 103: '#555555', 104: '#9C27B0',
-  };
-  return colors[id] || '#666';
-}
+// Pickup notification component with fade animation
+const PickupNotification: React.FC<{ id: number; count: number; index: number }> = ({ id, count, index }) => {
+  const [opacity, setOpacity] = useState(1);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setOpacity(0), 1500);
+    return () => clearTimeout(timer);
+  }, []);
+
+  return (
+    <div
+      className="text-sm text-white px-2 py-0.5 rounded transition-opacity duration-500"
+      style={{
+        opacity,
+        backgroundColor: 'rgba(0,0,0,0.6)',
+        transform: `translateY(${index * -5}px)`,
+      }}
+    >
+      +{count} {getItemName(id)}
+    </div>
+  );
+};

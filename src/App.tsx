@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { GameEngine, GameState } from './engine/GameEngine';
+import { GameEngine, GameState, PickupNotification } from './engine/GameEngine';
 import { HUD } from './ui/HUD';
 import { Inventory } from './ui/Inventory';
 import { Minimap } from './ui/Minimap';
@@ -22,6 +22,7 @@ const App: React.FC = () => {
     health: 100, hunger: 100, thirst: 100,
     stamina: 100, temperature: 0.2, mana: 100, maxMana: 100,
   });
+  const [pickupNotifications, setPickupNotifications] = useState<PickupNotification[]>([]);
 
   useEffect(() => {
     // Check for existing save
@@ -50,6 +51,10 @@ const App: React.FC = () => {
 
     engine.onStatsUpdate = (newStats) => {
       setStats(newStats);
+    };
+
+    engine.onPickupNotification = (notifications) => {
+      setPickupNotifications([...notifications]);
     };
   }, []);
 
@@ -111,6 +116,7 @@ const App: React.FC = () => {
             maxMana={stats.maxMana}
             hasStaff={false}
             breakProgress={engineRef.current?.blockInteraction?.getBreakProgress() ?? 0}
+            pickupNotifications={pickupNotifications}
           />
           <Crosshair />
           <Minimap
@@ -133,6 +139,7 @@ const App: React.FC = () => {
             maxMana={stats.maxMana}
             hasStaff={false}
             breakProgress={0}
+            pickupNotifications={pickupNotifications}
           />
           <Inventory isOpen={true} onClose={handleCloseInventory} />
         </>

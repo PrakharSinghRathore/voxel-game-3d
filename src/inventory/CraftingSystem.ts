@@ -1,6 +1,10 @@
 import { Recipe, RECIPES } from './recipes';
 
 export class CraftingSystem {
+  /**
+   * Match a 3x3 crafting grid against all recipes.
+   * Supports shapeless matching (pattern can be positioned anywhere in the grid).
+   */
   static matchRecipe(grid: (number | null)[]): Recipe | null {
     for (const recipe of RECIPES) {
       if (CraftingSystem.matchesPattern(grid, recipe.pattern)) {
@@ -8,6 +12,92 @@ export class CraftingSystem {
       }
     }
     return null;
+  }
+
+  /**
+   * Get all available recipes that can be crafted from current inventory
+   */
+  static getAvailableRecipes(inventorySlots: (import('../types/save').ItemStack | null)[]): Recipe[] {
+    const available: Recipe[] = [];
+    for (const recipe of RECIPES) {
+      if (CraftingSystem.canCraft(recipe, inventorySlots)) {
+        available.push(recipe);
+      }
+    }
+    return available;
+  }
+
+  /**
+   * Check if a recipe can be crafted with current inventory
+   */
+  static canCraft(recipe: Recipe, inventorySlots: (import('../types/save').ItemStack | null)[]): boolean {
+    // Count required items
+    const required: Map<number, number> = new Map();
+    for (const item of recipe.pattern) {
+      if (item !== null) {
+        required.set(item, (required.get(item) ?? 0) + 1);
+      }
+    }
+
+    // Count available items in inventory
+    const available: Map<number, number> = new Map();
+    for (const slot of inventorySlots) {
+      if (slot) {
+        available.set(slot.id, (available.get(slot.id) ?? 0) + slot.count);
+      }
+    }
+
+    // Check if we have enough
+    for (const [id, count] of required) {
+      if ((available.get(id) ?? 0) < count) return false;
+    }
+    return true;
+  }
+
+  /**
+   * Get the required items for a recipe (with counts)
+   */
+  static getRequiredItems(recipe: Recipe): Map<number, number> {
+    const required: Map<number, number> = new Map();
+    for (const item of recipe.pattern) {
+      if (item !== null) {
+        required.set(item, (required.get(item) ?? 0) + 1);
+      }
+    }
+    return required;
+  }
+
+  /**
+   * Quick-craft a recipe using inventory items (removes from inventory, returns result)
+   */
+  static quickCraft(recipe: Recipe, removeItem: (slot: number, count: number) => void, slots: (import('../types/save').ItemStack | null)[]): boolean {
+    // Count required items
+    const required = CraftingSystem.getRequiredItems(recipe);
+
+    // Check availability
+    const available: Map<number, number> = new Map();
+    for (const slot of slots) {
+      if (slot) {
+        available.set(slot.id, (available.get(slot.id) ?? 0) + slot.count);
+      }
+    }
+    for (const [id, count] of required) {
+      if ((available.get(id) ?? 0) < count) return false;
+    }
+
+    // Remove items from inventory
+    for (const [id, count] of required) {
+      let remaining = count;
+      for (let i = 0; i < slots.length && remaining > 0; i++) {
+        if (slots[i] && slots[i]!.id === id) {
+          const toRemove = Math.min(remaining, slots[i]!.count);
+          removeItem(i, toRemove);
+          remaining -= toRemove;
+        }
+      }
+    }
+
+    return true;
   }
 
   private static matchesPattern(grid: (number | null)[], pattern: (number | null)[]): boolean {
