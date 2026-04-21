@@ -7,7 +7,10 @@ export class InputManager {
   private mouseButtons: Map<number, boolean> = new Map();
   private mouseDeltaX: number = 0;
   private mouseDeltaY: number = 0;
+  private prevMouseDeltaX: number = 0;
+  private prevMouseDeltaY: number = 0;
   private scrollDelta: number = 0;
+  private prevScrollDelta: number = 0;
   private keyJustPressed: Map<string, boolean> = new Map();
   private canvas: HTMLCanvasElement | null = null;
 
@@ -19,6 +22,10 @@ export class InputManager {
         this.keyJustPressed.set(e.code, true);
       }
       this.keys.set(e.code, true);
+      // Prevent default for game keys
+      if (['Space', 'Tab', 'KeyW', 'KeyA', 'KeyS', 'KeyD', 'ShiftLeft', 'ShiftRight'].includes(e.code)) {
+        e.preventDefault();
+      }
     });
 
     document.addEventListener('keyup', (e) => {
@@ -34,8 +41,10 @@ export class InputManager {
     });
 
     document.addEventListener('mousemove', (e) => {
-      this.mouseDeltaX += e.movementX;
-      this.mouseDeltaY += e.movementY;
+      if (document.pointerLockElement === this.canvas) {
+        this.mouseDeltaX += e.movementX;
+        this.mouseDeltaY += e.movementY;
+      }
     });
 
     document.addEventListener('wheel', (e) => {
@@ -46,9 +55,13 @@ export class InputManager {
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
   }
 
+  // Call at START of frame - saves accumulated input for this frame, resets accumulators
   flush(): void {
+    this.prevMouseDeltaX = this.mouseDeltaX;
+    this.prevMouseDeltaY = this.mouseDeltaY;
     this.mouseDeltaX = 0;
     this.mouseDeltaY = 0;
+    this.prevScrollDelta = this.scrollDelta;
     this.scrollDelta = 0;
     this.keyJustPressed.clear();
   }
@@ -66,15 +79,15 @@ export class InputManager {
   }
 
   getMouseDeltaX(): number {
-    return this.mouseDeltaX;
+    return this.prevMouseDeltaX;
   }
 
   getMouseDeltaY(): number {
-    return this.mouseDeltaY;
+    return this.prevMouseDeltaY;
   }
 
   getScrollDelta(): number {
-    return this.scrollDelta;
+    return this.prevScrollDelta;
   }
 
   isPointerLocked(): boolean {

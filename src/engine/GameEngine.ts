@@ -327,6 +327,8 @@ export class GameEngine {
         } else {
           this.fogSystem.setBiomeFog(biome as BiomeID);
         }
+        // Pass sun height for realistic fog coloring
+        this.fogSystem.setSunHeight(this.dayNightCycle.getSunHeight());
         this.fogSystem.update(dt);
       }
 
