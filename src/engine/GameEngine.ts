@@ -282,9 +282,6 @@ export class GameEngine {
     // Clean old pickup notifications
     this.pickupNotifications = this.pickupNotifications.filter(n => this.elapsed - n.time < 2.0);
 
-    // Input
-    this.inputManager.flush();
-
     // Check for inventory toggle
     if (this.inputManager.isKeyJustPressed('Tab') && this.gameState === 'playing') {
       this.gameState = 'inventory';
@@ -417,6 +414,9 @@ export class GameEngine {
 
     // Auto-save
     this.saveManager.checkAutosave(this.elapsed);
+
+    // Flush input at END of frame so game logic can read just-pressed keys
+    this.inputManager.flush();
   };
 
   private sendChunkToWorker(key: string): void {

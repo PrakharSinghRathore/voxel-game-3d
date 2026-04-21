@@ -182,6 +182,8 @@ export function buildChunkMesh(
           const uvOffX = atlasX / ATLAS_TILES;
           const uvOffY = atlasY / ATLAS_TILES;
           const uvSize = 1 / ATLAS_TILES;
+          // Half-pixel inset to prevent texture bleeding
+          const uvPad = 0.5 / (ATLAS_TILES * 32); // ATLAS_SIZE=512, TILE_SIZE=32
 
           // ═══════════════════════════════
           // EMIT VERTICES
@@ -208,8 +210,8 @@ export function buildChunkMesh(
             targetPositions.push(vx, vy, vz);
             targetNormals.push(normal[0], normal[1], normal[2]);
             targetUvs.push(
-              uvOffX + BASE_UVS[v][0] * uvSize,
-              uvOffY + BASE_UVS[v][1] * uvSize
+              uvOffX + uvPad + BASE_UVS[v][0] * (uvSize - 2 * uvPad),
+              uvOffY + uvPad + BASE_UVS[v][1] * (uvSize - 2 * uvPad)
             );
             if (!isWater) {
               // Apply biome tint modulated by AO

@@ -345,6 +345,8 @@ export class AssetManager {
     this.atlas.minFilter = THREE.NearestFilter;
     this.atlas.wrapS = THREE.ClampToEdgeWrapping;
     this.atlas.wrapT = THREE.ClampToEdgeWrapping;
+    this.atlas.colorSpace = THREE.SRGBColorSpace;
+    this.atlas.needsUpdate = true;
   }
 
   private drawTile(ctx: CanvasRenderingContext2D, blockId: BlockID, drawer: (ctx: CanvasRenderingContext2D, x: number, y: number) => void): void {

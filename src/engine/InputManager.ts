@@ -12,6 +12,7 @@ export class InputManager {
   private scrollDelta: number = 0;
   private prevScrollDelta: number = 0;
   private keyJustPressed: Map<string, boolean> = new Map();
+  private prevKeyJustPressed: Map<string, boolean> = new Map();
   private canvas: HTMLCanvasElement | null = null;
 
   init(canvas: HTMLCanvasElement): void {
@@ -23,7 +24,7 @@ export class InputManager {
       }
       this.keys.set(e.code, true);
       // Prevent default for game keys
-      if (['Space', 'Tab', 'KeyW', 'KeyA', 'KeyS', 'KeyD', 'ShiftLeft', 'ShiftRight'].includes(e.code)) {
+      if (['Space', 'Tab', 'KeyW', 'KeyA', 'KeyS', 'KeyD', 'ShiftLeft', 'ShiftRight', 'KeyE', 'KeyF', 'KeyQ'].includes(e.code)) {
         e.preventDefault();
       }
     });
@@ -55,7 +56,7 @@ export class InputManager {
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
   }
 
-  // Call at START of frame - saves accumulated input for this frame, resets accumulators
+  // Call at END of frame — saves accumulated input, resets accumulators for next frame
   flush(): void {
     this.prevMouseDeltaX = this.mouseDeltaX;
     this.prevMouseDeltaY = this.mouseDeltaY;
@@ -63,6 +64,8 @@ export class InputManager {
     this.mouseDeltaY = 0;
     this.prevScrollDelta = this.scrollDelta;
     this.scrollDelta = 0;
+    // Move current just-pressed to previous, then clear for next frame
+    this.prevKeyJustPressed = new Map(this.keyJustPressed);
     this.keyJustPressed.clear();
   }
 
@@ -71,7 +74,7 @@ export class InputManager {
   }
 
   isKeyJustPressed(code: string): boolean {
-    return this.keyJustPressed.get(code) ?? false;
+    return this.prevKeyJustPressed.get(code) ?? false;
   }
 
   isMouseButtonDown(button: number): boolean {

@@ -248,6 +248,8 @@ self.onmessage = function(e) {
           const uvOffX = atlasInfo[0] / ATLAS_TILES;
           const uvOffY = atlasInfo[1] / ATLAS_TILES;
           const uvSz = 1 / ATLAS_TILES;
+          // Half-pixel inset to prevent texture bleeding between tiles
+          const uvPad = 0.5 / (ATLAS_TILES * 32); // ATLAS_SIZE=512, TILE_SIZE=32
 
           const tPos = isWater ? waterPositions : positions;
           const tNorm = isWater ? waterNormals : normals;
@@ -265,7 +267,7 @@ self.onmessage = function(e) {
             let vz = chunkZ * CHUNK_SIZE + z + verts[v][2];
             tPos.push(vx, vy, vz);
             tNorm.push(normal[0], normal[1], normal[2]);
-            tUv.push(uvOffX + BASE_UVS[v][0] * uvSz, uvOffY + BASE_UVS[v][1] * uvSz);
+            tUv.push(uvOffX + uvPad + BASE_UVS[v][0] * (uvSz - 2 * uvPad), uvOffY + uvPad + BASE_UVS[v][1] * (uvSz - 2 * uvPad));
             if (!isWater) {
               // Apply biome tint modulated by AO
               colors.push(ao[v] * tintR, ao[v] * tintG, ao[v] * tintB);
