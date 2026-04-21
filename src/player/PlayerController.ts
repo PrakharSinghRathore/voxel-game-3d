@@ -12,7 +12,8 @@ export class PlayerController {
   private renderer: Renderer;
   private walkSpeed = 4.317; // Minecraft walk speed
   private sprintSpeed = 5.612; // Minecraft sprint speed
-  private swimSpeed = 2.5;
+  private swimSpeed = 2.8;
+  private swimAccel = 18.0; // Acceleration in water (feels sluggish/resistant)
   private mouseSensitivity = 0.002;
   private targetFov = 75;
   private currentFov = 75;
@@ -39,10 +40,10 @@ export class PlayerController {
       this.player.pitch = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, this.player.pitch));
     }
 
-    // Movement input (works when playing state, even without pointer lock for key presses)
+    // Sprinting (not while swimming)
     this.player.isSprinting = this.input.isKeyDown('ShiftLeft') && !this.player.isSwimming;
-    const speed = this.player.isSwimming ? this.swimSpeed : this.player.isSprinting ? this.sprintSpeed : this.walkSpeed;
 
+    // Movement directions
     const forward = { x: -Math.sin(this.player.yaw), y: 0, z: -Math.cos(this.player.yaw) };
     const right = { x: Math.cos(this.player.yaw), y: 0, z: -Math.sin(this.player.yaw) };
 
@@ -54,22 +55,44 @@ export class PlayerController {
     if (this.input.isKeyDown('KeyD')) { moveX += right.x; moveZ += right.z; }
 
     const len = Math.sqrt(moveX * moveX + moveZ * moveZ);
-    if (len > 0) {
-      moveX = (moveX / len) * speed;
-      moveZ = (moveZ / len) * speed;
-    }
 
-    this.player.velocity.x = moveX;
-    this.player.velocity.z = moveZ;
+    if (this.player.isSwimming) {
+      // === SWIMMING MODE ===
+      // Use acceleration-based movement so water drag in Player.update() actually matters
+      if (len > 0) {
+        moveX = (moveX / len) * this.swimAccel;
+        moveZ = (moveZ / len) * this.swimAccel;
+      }
 
-    // Jump / swim up
-    if (this.input.isKeyDown('Space')) {
-      this.player.jump();
-    }
+      // Vertical swimming controls
+      let swimY = 0;
+      if (this.input.isKeyDown('Space')) {
+        swimY = this.swimAccel * 0.8; // Swim up
+      }
+      if (this.input.isKeyDown('ShiftLeft')) {
+        swimY = -this.swimAccel * 0.6; // Dive down
+      }
 
-    // Swim down with Shift in water
-    if (this.player.isSwimming && this.input.isKeyDown('ShiftLeft')) {
-      this.player.dive();
+      // Set input acceleration for Player.update() to use with drag
+      this.player.inputAccel = { x: moveX, y: swimY, z: moveZ };
+    } else {
+      // === WALKING MODE ===
+      // Direct velocity set for crisp ground movement
+      const speed = this.player.isSprinting ? this.sprintSpeed : this.walkSpeed;
+      if (len > 0) {
+        moveX = (moveX / len) * speed;
+        moveZ = (moveZ / len) * speed;
+      }
+      this.player.velocity.x = moveX;
+      this.player.velocity.z = moveZ;
+
+      // Reset swimming input
+      this.player.inputAccel = { x: 0, y: 0, z: 0 };
+
+      // Jump
+      if (this.input.isKeyDown('Space')) {
+        this.player.jump();
+      }
     }
 
     // FOV change for sprinting

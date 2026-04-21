@@ -136,9 +136,16 @@ export class GameEngine {
     // Create world
     this.worldManager = new WorldManager(seed);
 
-    // Create player
+    // Pre-generate chunks around spawn so we can find ground
+    this.worldManager.update(0, 0);
+    for (let i = 0; i < 5; i++) {
+      this.worldManager.update(0, 0);
+    }
+
+    // Create player — find land above water for spawn
     this.player = new Player((wx, wy, wz) => this.worldManager!.getBlock(wx, wy, wz));
-    this.player.position = { x: 8, y: 45, z: 8 };
+    const spawn = Player.findLandSpawn((wx, wy, wz) => this.worldManager!.getBlock(wx, wy, wz), 8, 8);
+    this.player.position = { x: spawn.x, y: spawn.y, z: spawn.z };
 
     // Player systems
     this.survivalStats = new SurvivalStats();
@@ -383,8 +390,9 @@ export class GameEngine {
 
   respawn(): void {
     this.survivalStats?.respawn();
-    if (this.player) {
-      this.player.position = { x: 8, y: 45, z: 8 };
+    if (this.player && this.worldManager) {
+      const spawn = Player.findLandSpawn((wx, wy, wz) => this.worldManager!.getBlock(wx, wy, wz), 8, 8);
+      this.player.position = { x: spawn.x, y: spawn.y, z: spawn.z };
       this.player.velocity = { x: 0, y: 0, z: 0 };
       const eye = this.player.getEyePosition();
       this.renderer.setMainCameraPosition(eye.x, eye.y, eye.z);
