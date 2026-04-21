@@ -7,10 +7,16 @@ import { BiomeID } from '../types/biomes';
 
 // ═══════════════════════════════
 // WORLD MANAGER — Chunk load/unload, dirty queue
+// Stores biome maps alongside chunks for worker tinting
 // ═══════════════════════════════
 
+interface ChunkEntry {
+  chunk: ChunkData;
+  biomeMap: BiomeID[]; // 16×16 = 256 entries per chunk
+}
+
 export class WorldManager {
-  private chunks: Map<string, ChunkData> = new Map();
+  private chunks: Map<string, ChunkEntry> = new Map();
   private terrainGenerator: TerrainGenerator;
   private biomeGenerator: BiomeGenerator;
   private structureGenerator: StructureGenerator;
@@ -29,13 +35,17 @@ export class WorldManager {
   }
 
   getChunk(cx: number, cz: number): ChunkData | undefined {
-    return this.chunks.get(this.chunkKey(cx, cz));
+    return this.chunks.get(this.chunkKey(cx, cz))?.chunk;
+  }
+
+  getBiomeMap(cx: number, cz: number): BiomeID[] | undefined {
+    return this.chunks.get(this.chunkKey(cx, cz))?.biomeMap;
   }
 
   getBlock(wx: number, wy: number, wz: number): number {
     const cx = Math.floor(wx / CHUNK_SIZE);
     const cz = Math.floor(wz / CHUNK_SIZE);
-    const chunk = this.chunks.get(this.chunkKey(cx, cz));
+    const chunk = this.chunks.get(this.chunkKey(cx, cz))?.chunk;
     if (!chunk) return 0;
     return chunk.getBlockWorld(wx, wy, wz);
   }
@@ -43,7 +53,7 @@ export class WorldManager {
   setBlock(wx: number, wy: number, wz: number, blockId: number): void {
     const cx = Math.floor(wx / CHUNK_SIZE);
     const cz = Math.floor(wz / CHUNK_SIZE);
-    const chunk = this.chunks.get(this.chunkKey(cx, cz));
+    const chunk = this.chunks.get(this.chunkKey(cx, cz))?.chunk;
     if (!chunk) return;
     chunk.setBlockWorld(wx, wy, wz, blockId);
     this.dirtyQueue.add(this.chunkKey(cx, cz));
@@ -79,7 +89,7 @@ export class WorldManager {
           const biomeMap = this.biomeGenerator.generateBiomeMap(cx, cz);
           this.terrainGenerator.generateChunk(chunk, biomeMap);
           this.structureGenerator.generateStructures(chunk, biomeMap);
-          this.chunks.set(key, chunk);
+          this.chunks.set(key, { chunk, biomeMap });
           this.dirtyQueue.add(key);
           chunksToLoad.push(key);
         }
@@ -88,9 +98,9 @@ export class WorldManager {
 
     // Unload distant chunks
     const unloadDistance = RENDER_DISTANCE + 2;
-    for (const [key, chunk] of this.chunks) {
-      const dx = chunk.chunkX - pcx;
-      const dz = chunk.chunkZ - pcz;
+    for (const [key, entry] of this.chunks) {
+      const dx = entry.chunk.chunkX - pcx;
+      const dz = entry.chunk.chunkZ - pcz;
       if (dx * dx + dz * dz > unloadDistance * unloadDistance) {
         this.chunks.delete(key);
         this.dirtyQueue.delete(key);
@@ -119,7 +129,12 @@ export class WorldManager {
   }
 
   getAllChunks(): Map<string, ChunkData> {
-    return this.chunks;
+    // Return just the ChunkData objects for compatibility
+    const result = new Map<string, ChunkData>();
+    for (const [key, entry] of this.chunks) {
+      result.set(key, entry.chunk);
+    }
+    return result;
   }
 
   getTerrainGenerator(): TerrainGenerator {
@@ -137,10 +152,20 @@ export class WorldManager {
   // Get neighbor chunk voxel arrays for meshing
   getNeighborVoxels(cx: number, cz: number): (Uint8Array | null)[] {
     return [
-      this.chunks.get(this.chunkKey(cx + 1, cz))?.voxels ?? null,  // +X
-      this.chunks.get(this.chunkKey(cx - 1, cz))?.voxels ?? null,  // -X
-      this.chunks.get(this.chunkKey(cx, cz + 1))?.voxels ?? null,  // +Z
-      this.chunks.get(this.chunkKey(cx, cz - 1))?.voxels ?? null,  // -Z
+      this.chunks.get(this.chunkKey(cx + 1, cz))?.chunk.voxels ?? null,  // +X
+      this.chunks.get(this.chunkKey(cx - 1, cz))?.chunk.voxels ?? null,  // -X
+      this.chunks.get(this.chunkKey(cx, cz + 1))?.chunk.voxels ?? null,  // +Z
+      this.chunks.get(this.chunkKey(cx, cz - 1))?.chunk.voxels ?? null,  // -Z
+    ];
+  }
+
+  // Get neighbor biome maps for meshing (for edge column tinting)
+  getNeighborBiomeMaps(cx: number, cz: number): (BiomeID[] | null)[] {
+    return [
+      this.chunks.get(this.chunkKey(cx + 1, cz))?.biomeMap ?? null,  // +X
+      this.chunks.get(this.chunkKey(cx - 1, cz))?.biomeMap ?? null,  // -X
+      this.chunks.get(this.chunkKey(cx, cz + 1))?.biomeMap ?? null,  // +Z
+      this.chunks.get(this.chunkKey(cx, cz - 1))?.biomeMap ?? null,  // -Z
     ];
   }
 }

@@ -421,20 +421,23 @@ export class GameEngine {
 
   private sendChunkToWorker(key: string): void {
     if (!this.worldManager || !this.chunkWorker || this.pendingMeshes.has(key)) return;
-    const chunk = this.worldManager.getChunk(
-      parseInt(key.split(',')[0]),
-      parseInt(key.split(',')[1])
-    );
+    const cx = parseInt(key.split(',')[0]);
+    const cz = parseInt(key.split(',')[1]);
+    const chunk = this.worldManager.getChunk(cx, cz);
     if (!chunk) return;
 
-    const neighbors = this.worldManager.getNeighborVoxels(chunk.chunkX, chunk.chunkZ);
+    const neighbors = this.worldManager.getNeighborVoxels(cx, cz);
+    const biomeMap = this.worldManager.getBiomeMap(cx, cz);
+    const neighborBiomes = this.worldManager.getNeighborBiomeMaps(cx, cz);
     this.pendingMeshes.set(key, true);
 
     this.chunkWorker.postMessage({
-      chunkX: chunk.chunkX,
-      chunkZ: chunk.chunkZ,
+      chunkX: cx,
+      chunkZ: cz,
       voxels: chunk.voxels,
       neighbors,
+      biomeMap: biomeMap ?? null,
+      neighborBiomes,
     });
   }
 

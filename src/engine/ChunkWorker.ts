@@ -1,6 +1,7 @@
 // ═══════════════════════════════
 // CHUNK WORKER — Web Worker for mesh generation
 // Runs off main thread, receives plain arrays
+// Now supports biome-aware vertex color tinting
 // ═══════════════════════════════
 
 // This file is loaded as a Web Worker
@@ -38,10 +39,18 @@ const FACE_NORMALS = [
 const BASE_UVS = [[0,0],[0,1],[1,1],[1,0]];
 
 // Block properties (simplified for worker)
-// Transparent: AIR(0), ICE(7), LAVA(11), WATER(12), LEAVES(13), PORTAL_ACTIVE(21), LILY_PAD(22), SPRUCE_LEAVES(24)
-const TRANSPARENT_BLOCKS = new Set([0, 7, 11, 12, 13, 21, 22, 24]);
-// Solid: everything except AIR, WATER, LAVA, PORTAL_ACTIVE, LILY_PAD
-const SOLID_BLOCKS = new Set([1,2,3,4,5,6,7,8,9,10,14,15,16,17,18,19,20,23,25,26]);
+// BlockID enum: AIR=0, GRASS=1, DIRT=2, STONE=3, SAND=4, SANDSTONE=5, SNOW=6,
+//   ICE=7, MUD=8, CRYSTAL=9, GLOWSTONE=10, LAVA=11, WATER=12, WOOD=13,
+//   LEAVES=14, CACTUS=15, BEDROCK=16, COAL_ORE=17, IRON_ORE=18, GOLD_ORE=19,
+//   DIAMOND_ORE=20, PORTAL_FRAME=21, PORTAL_ACTIVE=22, LILY_PAD=23,
+//   SPRUCE_WOOD=24, SPRUCE_LEAVES=25, PACKED_ICE=26
+const TRANSPARENT_BLOCKS = new Set([0, 7, 11, 12, 14, 22, 23, 25]);
+const SOLID_BLOCKS = new Set([1,2,3,4,5,6,8,9,10,13,15,16,17,18,19,20,21,24,26]);
+
+// Blocks that get tinted by biome grassColor
+const GRASS_TINTED = new Set([1]); // GRASS
+// Blocks that get tinted by biome foliageColor
+const FOLIAGE_TINTED = new Set([14, 25]); // LEAVES, SPRUCE_LEAVES
 
 function isTransparent(id) { return TRANSPARENT_BLOCKS.has(id); }
 function isSolid(id) { return SOLID_BLOCKS.has(id); }
@@ -64,12 +73,50 @@ function getVoxelSafe(voxels, neighbors, x, y, z) {
   return nVoxels[lx + lz * CHUNK_SIZE + y * CHUNK_SIZE * CHUNK_SIZE];
 }
 
+// ═══════════════════════════════
+// BIOME COLOR LOOKUP
+// ═══════════════════════════════
+// BiomeID enum: OCEAN=0, BEACH=1, PLAINS=2, FOREST=3, DARK_FOREST=4,
+//   SAVANNA=5, DESERT=6, JUNGLE=7, SNOWY_PLAINS=8, MOUNTAINS=9
+// Format: [grassR, grassG, grassB, foliageR, foliageG, foliageB]
+const BIOME_COLORS = [
+  [0.18, 0.38, 0.28, 0.12, 0.30, 0.18],  // OCEAN
+  [0.50, 0.65, 0.30, 0.40, 0.55, 0.20],  // BEACH
+  [0.30, 0.69, 0.31, 0.18, 0.49, 0.20],  // PLAINS
+  [0.25, 0.60, 0.25, 0.12, 0.42, 0.15],  // FOREST
+  [0.18, 0.38, 0.18, 0.08, 0.22, 0.08],  // DARK_FOREST
+  [0.62, 0.72, 0.28, 0.50, 0.60, 0.18],  // SAVANNA
+  [0.72, 0.68, 0.35, 0.60, 0.55, 0.20],  // DESERT
+  [0.20, 0.65, 0.20, 0.10, 0.50, 0.10],  // JUNGLE
+  [0.75, 0.82, 0.85, 0.55, 0.65, 0.72],  // SNOWY_PLAINS
+  [0.35, 0.45, 0.35, 0.20, 0.35, 0.20],  // MOUNTAINS
+];
+
+function getBiomeGrassColor(biomeId) {
+  const c = BIOME_COLORS[biomeId] || BIOME_COLORS[2]; // default PLAINS
+  return [c[0], c[1], c[2]];
+}
+
+function getBiomeFoliageColor(biomeId) {
+  const c = BIOME_COLORS[biomeId] || BIOME_COLORS[2]; // default PLAINS
+  return [c[3], c[4], c[5]];
+}
+
+// Get biome at local chunk position (with neighbor fallback)
+function getBiomeAt(biomeMap, neighborBiomes, lx, lz) {
+  if (lx >= 0 && lx < CHUNK_SIZE && lz >= 0 && lz < CHUNK_SIZE) {
+    return biomeMap[lx + lz * CHUNK_SIZE];
+  }
+  // Check neighbor biome maps
+  const nIdx = lx < 0 ? 1 : lx >= CHUNK_SIZE ? 0 : lz < 0 ? 3 : 2;
+  const nMap = neighborBiomes[nIdx];
+  if (!nMap) return 2; // default PLAINS
+  const nlx = ((lx % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
+  const nlz = ((lz % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
+  return nMap[nlx + nlz * CHUNK_SIZE];
+}
+
 // Atlas tile mapping — must match BLOCK_DEFS in types/blocks.ts exactly
-// BlockID enum: AIR=0, GRASS=1, DIRT=2, STONE=3, SAND=4, SANDSTONE=5, SNOW=6,
-//   ICE=7, MUD=8, CRYSTAL=9, GLOWSTONE=10, LAVA=11, WATER=12, WOOD=13,
-//   LEAVES=14, CACTUS=15, BEDROCK=16, COAL_ORE=17, IRON_ORE=18, GOLD_ORE=19,
-//   DIAMOND_ORE=20, PORTAL_FRAME=21, PORTAL_ACTIVE=22, LILY_PAD=23,
-//   SPRUCE_WOOD=24, SPRUCE_LEAVES=25, PACKED_ICE=26
 const ATLAS_MAP = {
   0: [0,0],   // AIR (unused)
   1: [0,0],   // GRASS top
@@ -109,7 +156,7 @@ const BOTTOM_MAP = {
 };
 
 self.onmessage = function(e) {
-  const { chunkX, chunkZ, voxels, neighbors } = e.data;
+  const { chunkX, chunkZ, voxels, neighbors, biomeMap, neighborBiomes } = e.data;
 
   const positions = [];
   const normals = [];
@@ -130,6 +177,19 @@ self.onmessage = function(e) {
         if (block === 0) continue; // AIR
 
         const isWater = block === 12; // WATER
+
+        // Get biome for this column for color tinting
+        const biome = biomeMap ? biomeMap[x + z * CHUNK_SIZE] : 2; // default PLAINS
+
+        // Pre-compute tint color for this block
+        let tintR = 1.0, tintG = 1.0, tintB = 1.0;
+        if (GRASS_TINTED.has(block)) {
+          const gc = getBiomeGrassColor(biome);
+          tintR = gc[0]; tintG = gc[1]; tintB = gc[2];
+        } else if (FOLIAGE_TINTED.has(block)) {
+          const fc = getBiomeFoliageColor(biome);
+          tintR = fc[0]; tintG = fc[1]; tintB = fc[2];
+        }
 
         for (let fi = 0; fi < 6; fi++) {
           const dir = FACE_DIRS[fi];
@@ -206,7 +266,10 @@ self.onmessage = function(e) {
             tPos.push(vx, vy, vz);
             tNorm.push(normal[0], normal[1], normal[2]);
             tUv.push(uvOffX + BASE_UVS[v][0] * uvSz, uvOffY + BASE_UVS[v][1] * uvSz);
-            if (!isWater) colors.push(ao[v], ao[v], ao[v]);
+            if (!isWater) {
+              // Apply biome tint modulated by AO
+              colors.push(ao[v] * tintR, ao[v] * tintG, ao[v] * tintB);
+            }
           }
 
           tIdx.push(cvc, cvc + 1, cvc + 2);

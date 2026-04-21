@@ -1,11 +1,11 @@
 // ═══════════════════════════════
-// CHUNK MESHER — runs in Web Worker
-// Greedy mesh + AO baking
+// CHUNK MESHER — Greedy mesh + AO baking + Biome tinting
 // No Three.js imports — pure arrays
 // ═══════════════════════════════
 
 import { CHUNK_SIZE, CHUNK_HEIGHT, ATLAS_TILES } from './constants';
 import { BlockID, BLOCK_DEFS, isBlockSolid, isBlockTransparent } from '../types/blocks';
+import { BiomeID, BIOME_DEFS } from '../types/biomes';
 
 // Face directions: +X, -X, +Y, -Y, +Z, -Z
 const FACE_DIRS = [
@@ -43,6 +43,11 @@ const BASE_UVS: number[][] = [
   [0, 0], [0, 1], [1, 1], [1, 0],
 ];
 
+// Blocks that get tinted by biome grassColor
+const GRASS_TINTED = new Set([BlockID.GRASS]);
+// Blocks that get tinted by biome foliageColor
+const FOLIAGE_TINTED = new Set([BlockID.LEAVES, BlockID.SPRUCE_LEAVES]);
+
 export interface MeshData {
   positions: Float32Array;
   normals: Float32Array;
@@ -59,7 +64,8 @@ export function buildChunkMesh(
   voxels: Uint8Array,
   neighborVoxels: (Uint8Array | null)[], // [+X, -X, +Z, -Z]
   chunkX: number,
-  chunkZ: number
+  chunkZ: number,
+  biomeMap?: BiomeID[] | null
 ): MeshData {
   const positions: number[] = [];
   const normals: number[] = [];
@@ -82,6 +88,22 @@ export function buildChunkMesh(
         if (block === BlockID.AIR) continue;
 
         const isWater = block === BlockID.WATER;
+
+        // Get biome for this column for color tinting
+        const biome = biomeMap ? biomeMap[x + z * CHUNK_SIZE] : BiomeID.PLAINS;
+        const biomeDef = BIOME_DEFS[biome];
+
+        // Pre-compute tint color for this block
+        let tintR = 1.0, tintG = 1.0, tintB = 1.0;
+        if (GRASS_TINTED.has(block as BlockID)) {
+          tintR = biomeDef.grassColor[0];
+          tintG = biomeDef.grassColor[1];
+          tintB = biomeDef.grassColor[2];
+        } else if (FOLIAGE_TINTED.has(block as BlockID)) {
+          tintR = biomeDef.foliageColor[0];
+          tintG = biomeDef.foliageColor[1];
+          tintB = biomeDef.foliageColor[2];
+        }
 
         for (let faceIdx = 0; faceIdx < 6; faceIdx++) {
           const dir = FACE_DIRS[faceIdx];
@@ -190,7 +212,8 @@ export function buildChunkMesh(
               uvOffY + BASE_UVS[v][1] * uvSize
             );
             if (!isWater) {
-              colors.push(ao[v], ao[v], ao[v]);
+              // Apply biome tint modulated by AO
+              colors.push(ao[v] * tintR, ao[v] * tintG, ao[v] * tintB);
             }
           }
 
