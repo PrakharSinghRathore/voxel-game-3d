@@ -341,6 +341,7 @@ export class AssetManager {
 
     // Create texture
     this.atlas = new THREE.CanvasTexture(this.canvas);
+    this.atlas.flipY = false;
     this.atlas.magFilter = THREE.NearestFilter;
     this.atlas.minFilter = THREE.NearestFilter;
     this.atlas.wrapS = THREE.ClampToEdgeWrapping;

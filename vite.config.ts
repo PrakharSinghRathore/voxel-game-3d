@@ -4,7 +4,7 @@ import path from 'path';
 
 export default defineConfig({
   plugins: [react()],
-  base: '/voxel-game-3d/',
+  base: './',
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),

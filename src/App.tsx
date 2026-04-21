@@ -7,6 +7,7 @@ import { DeathScreen } from './ui/DeathScreen';
 import { StartScreen } from './ui/StartScreen';
 import { Crosshair } from './ui/Crosshair';
 import { useInventoryStore } from './inventory/InventoryStore';
+import { ItemID } from './inventory/ItemDefs';
 
 // ═══════════════════════════════
 // APP — Root: GameCanvas + HUD overlay
@@ -23,6 +24,7 @@ const App: React.FC = () => {
     stamina: 100, temperature: 0.2, mana: 100, maxMana: 100,
   });
   const [pickupNotifications, setPickupNotifications] = useState<PickupNotification[]>([]);
+  const selectedItem = useInventoryStore((state) => state.getSelectedItem());
 
   useEffect(() => {
     // Check for existing save
@@ -89,6 +91,7 @@ const App: React.FC = () => {
 
   const playerX = engineRef.current?.player?.position.x ?? 0;
   const playerZ = engineRef.current?.player?.position.z ?? 0;
+  const hasStaff = selectedItem?.id === ItemID.MAGIC_STAFF;
 
   return (
     <div className="w-full h-full relative">
@@ -114,7 +117,7 @@ const App: React.FC = () => {
             temperature={stats.temperature}
             mana={stats.mana}
             maxMana={stats.maxMana}
-            hasStaff={false}
+            hasStaff={hasStaff}
             breakProgress={engineRef.current?.blockInteraction?.getBreakProgress() ?? 0}
             pickupNotifications={pickupNotifications}
           />
@@ -137,7 +140,7 @@ const App: React.FC = () => {
             temperature={stats.temperature}
             mana={stats.mana}
             maxMana={stats.maxMana}
-            hasStaff={false}
+            hasStaff={hasStaff}
             breakProgress={0}
             pickupNotifications={pickupNotifications}
           />

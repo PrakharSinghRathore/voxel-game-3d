@@ -1,3 +1,4 @@
+import * as THREE from 'three';
 import { WeaponDef, FIST_DEF } from './weapons/Fist';
 import { InputManager } from '../engine/InputManager';
 import { Player } from '../player/Player';

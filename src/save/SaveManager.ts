@@ -19,13 +19,15 @@ export class SaveManager {
   private biomeGenerator: BiomeGenerator | null = null;
   private chunks: Map<string, ChunkData> | null = null;
   private lastAutoSave = 0;
+  private seed = 0;
 
-  init(player: Player, survivalStats: SurvivalStats, terrainGen: TerrainGenerator, biomeGen: BiomeGenerator, chunks: Map<string, ChunkData>): void {
+  init(player: Player, survivalStats: SurvivalStats, terrainGen: TerrainGenerator, biomeGen: BiomeGenerator, chunks: Map<string, ChunkData>, seed: number): void {
     this.player = player;
     this.survivalStats = survivalStats;
     this.terrainGenerator = terrainGen;
     this.biomeGenerator = biomeGen;
     this.chunks = chunks;
+    this.seed = seed;
     localforage.config({ name: 'voxel_survival' });
   }
 
@@ -60,7 +62,7 @@ export class SaveManager {
     const inventoryState = useInventoryStore.getState();
     const saveData: SaveData = {
       version: 2,
-      seed: this.terrainGenerator ? 0 : 0, // TODO: get seed
+      seed: this.seed,
       timestamp: Date.now(),
       player: {
         position: [this.player.position.x, this.player.position.y, this.player.position.z],
@@ -98,7 +100,7 @@ export class SaveManager {
   }
 
   checkAutosave(elapsed: number): void {
-    if (elapsed - this.lastAutoSave > AUTO_SAVE_INTERVAL_MS) {
+    if ((elapsed - this.lastAutoSave) * 1000 > AUTO_SAVE_INTERVAL_MS) {
       this.lastAutoSave = elapsed;
       this.save().catch(console.error);
     }

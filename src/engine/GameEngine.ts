@@ -223,7 +223,8 @@ export class GameEngine {
       this.player, this.survivalStats,
       this.worldManager.getTerrainGenerator(),
       this.worldManager.getBiomeGenerator(),
-      this.worldManager.getAllChunks()
+      this.worldManager.getAllChunks(),
+      this.seed
     );
 
     this.gameState = 'playing';
