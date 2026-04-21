@@ -1,95 +1,231 @@
+import { BlockID } from './blocks';
+
+// ═══════════════════════════════
+// BIOME SYSTEM — 10 Biomes with 3-Layer Climate Selection
+// ═══════════════════════════════
+
 export enum BiomeID {
-  PLAINS = 0,
+  OCEAN = 0,
+  BEACH,
+  PLAINS,
+  FOREST,
+  DARK_FOREST,
+  SAVANNA,
   DESERT,
-  TUNDRA,
-  MARSH,
-  CRYSTAL_CAVERNS,
+  JUNGLE,
+  SNOWY_PLAINS,
+  MOUNTAINS,
 }
 
 export interface BiomeDef {
   id: BiomeID;
   name: string;
-  surfaceBlock: number; // BlockID for surface
-  subSurfaceBlock: number; // BlockID for 1-3 blocks below surface
-  underwaterBlock: number; // BlockID for underwater floor
-  amplitude: number; // terrain height amplitude
-  treeType: 'oak' | 'spruce' | 'cactus' | 'crystal' | 'none';
-  treeDensity: number; // 0-1
-  waterLevel: number; // sea level override or -1
+  surfaceBlock: BlockID;
+  subSurfaceBlock: BlockID;
+  underwaterBlock: BlockID;
+  amplitude: number;
+  baseHeight: number; // Offset from SEA_LEVEL
+  treeType: 'oak' | 'spruce' | 'cactus' | 'crystal' | 'jungle' | 'dark_oak' | 'acacia' | 'none';
+  treeDensity: number;
+  waterLevel: number; // -1 = use global SEA_LEVEL
   fogColor: [number, number, number];
   fogDensity: number;
   temperature: number; // -1 to 1 (cold to hot)
+  grassColor: [number, number, number];
+  foliageColor: [number, number, number];
+  skyModColor: [number, number, number]; // Sky color tint
+  spawnWeight: number; // Creature spawn weight multiplier
 }
 
 export const BIOME_DEFS: Record<BiomeID, BiomeDef> = {
+  [BiomeID.OCEAN]: {
+    id: BiomeID.OCEAN,
+    name: 'Deep Ocean',
+    surfaceBlock: BlockID.SAND,
+    subSurfaceBlock: BlockID.SANDSTONE,
+    underwaterBlock: BlockID.SAND,
+    amplitude: 3,
+    baseHeight: -8,
+    treeType: 'none',
+    treeDensity: 0,
+    waterLevel: -1,
+    fogColor: [0.2, 0.35, 0.55],
+    fogDensity: 0.020,
+    temperature: -0.1,
+    grassColor: [0.18, 0.38, 0.28],
+    foliageColor: [0.12, 0.30, 0.18],
+    skyModColor: [0.6, 0.75, 0.9],
+    spawnWeight: 0.2,
+  },
+  [BiomeID.BEACH]: {
+    id: BiomeID.BEACH,
+    name: 'Sandy Beach',
+    surfaceBlock: BlockID.SAND,
+    subSurfaceBlock: BlockID.SANDSTONE,
+    underwaterBlock: BlockID.SAND,
+    amplitude: 2,
+    baseHeight: -1,
+    treeType: 'none',
+    treeDensity: 0,
+    waterLevel: -1,
+    fogColor: [0.95, 0.92, 0.78],
+    fogDensity: 0.010,
+    temperature: 0.3,
+    grassColor: [0.50, 0.65, 0.30],
+    foliageColor: [0.40, 0.55, 0.20],
+    skyModColor: [0.95, 0.92, 0.82],
+    spawnWeight: 0.3,
+  },
   [BiomeID.PLAINS]: {
     id: BiomeID.PLAINS,
     name: 'Verdant Plains',
-    surfaceBlock: 1,  // GRASS
-    subSurfaceBlock: 2, // DIRT
-    underwaterBlock: 2, // DIRT
-    amplitude: 12,
+    surfaceBlock: BlockID.GRASS,
+    subSurfaceBlock: BlockID.DIRT,
+    underwaterBlock: BlockID.DIRT,
+    amplitude: 10,
+    baseHeight: 0,
     treeType: 'oak',
-    treeDensity: 0.02,
+    treeDensity: 0.015,
     waterLevel: -1,
     fogColor: [0.784, 0.902, 0.788],
     fogDensity: 0.012,
     temperature: 0.2,
+    grassColor: [0.30, 0.69, 0.31],
+    foliageColor: [0.18, 0.49, 0.20],
+    skyModColor: [0.75, 0.88, 0.75],
+    spawnWeight: 1.0,
+  },
+  [BiomeID.FOREST]: {
+    id: BiomeID.FOREST,
+    name: 'Dense Forest',
+    surfaceBlock: BlockID.GRASS,
+    subSurfaceBlock: BlockID.DIRT,
+    underwaterBlock: BlockID.DIRT,
+    amplitude: 12,
+    baseHeight: 1,
+    treeType: 'oak',
+    treeDensity: 0.06,
+    waterLevel: -1,
+    fogColor: [0.55, 0.78, 0.50],
+    fogDensity: 0.016,
+    temperature: 0.3,
+    grassColor: [0.25, 0.60, 0.25],
+    foliageColor: [0.12, 0.42, 0.15],
+    skyModColor: [0.65, 0.82, 0.60],
+    spawnWeight: 1.0,
+  },
+  [BiomeID.DARK_FOREST]: {
+    id: BiomeID.DARK_FOREST,
+    name: 'Dark Forest',
+    surfaceBlock: BlockID.GRASS,
+    subSurfaceBlock: BlockID.DIRT,
+    underwaterBlock: BlockID.DIRT,
+    amplitude: 14,
+    baseHeight: 2,
+    treeType: 'dark_oak',
+    treeDensity: 0.08,
+    waterLevel: -1,
+    fogColor: [0.25, 0.35, 0.20],
+    fogDensity: 0.024,
+    temperature: 0.1,
+    grassColor: [0.18, 0.38, 0.18],
+    foliageColor: [0.08, 0.22, 0.08],
+    skyModColor: [0.40, 0.50, 0.35],
+    spawnWeight: 0.6,
+  },
+  [BiomeID.SAVANNA]: {
+    id: BiomeID.SAVANNA,
+    name: 'Arid Savanna',
+    surfaceBlock: BlockID.GRASS,
+    subSurfaceBlock: BlockID.DIRT,
+    underwaterBlock: BlockID.DIRT,
+    amplitude: 8,
+    baseHeight: 0,
+    treeType: 'acacia',
+    treeDensity: 0.008,
+    waterLevel: -1,
+    fogColor: [0.88, 0.85, 0.60],
+    fogDensity: 0.012,
+    temperature: 0.6,
+    grassColor: [0.62, 0.72, 0.28],
+    foliageColor: [0.50, 0.60, 0.18],
+    skyModColor: [0.90, 0.85, 0.65],
+    spawnWeight: 0.8,
   },
   [BiomeID.DESERT]: {
     id: BiomeID.DESERT,
-    name: 'Desert',
-    surfaceBlock: 4, // SAND
-    subSurfaceBlock: 5, // SANDSTONE
-    underwaterBlock: 4,
-    amplitude: 8,
+    name: 'Scorching Desert',
+    surfaceBlock: BlockID.SAND,
+    subSurfaceBlock: BlockID.SANDSTONE,
+    underwaterBlock: BlockID.SAND,
+    amplitude: 6,
+    baseHeight: -1,
     treeType: 'cactus',
     treeDensity: 0.008,
     waterLevel: -1,
     fogColor: [1.0, 0.976, 0.769],
     fogDensity: 0.010,
     temperature: 0.9,
+    grassColor: [0.72, 0.68, 0.35],
+    foliageColor: [0.60, 0.55, 0.20],
+    skyModColor: [1.0, 0.95, 0.80],
+    spawnWeight: 0.5,
   },
-  [BiomeID.TUNDRA]: {
-    id: BiomeID.TUNDRA,
+  [BiomeID.JUNGLE]: {
+    id: BiomeID.JUNGLE,
+    name: 'Lush Jungle',
+    surfaceBlock: BlockID.GRASS,
+    subSurfaceBlock: BlockID.DIRT,
+    underwaterBlock: BlockID.MUD,
+    amplitude: 14,
+    baseHeight: 2,
+    treeType: 'jungle',
+    treeDensity: 0.10,
+    waterLevel: -1,
+    fogColor: [0.35, 0.70, 0.30],
+    fogDensity: 0.020,
+    temperature: 0.7,
+    grassColor: [0.20, 0.65, 0.20],
+    foliageColor: [0.10, 0.50, 0.10],
+    skyModColor: [0.50, 0.78, 0.45],
+    spawnWeight: 0.9,
+  },
+  [BiomeID.SNOWY_PLAINS]: {
+    id: BiomeID.SNOWY_PLAINS,
     name: 'Frozen Tundra',
-    surfaceBlock: 6, // SNOW
-    subSurfaceBlock: 2, // DIRT
-    underwaterBlock: 23, // PACKED_ICE
-    amplitude: 4,
+    surfaceBlock: BlockID.SNOW,
+    subSurfaceBlock: BlockID.DIRT,
+    underwaterBlock: BlockID.PACKED_ICE,
+    amplitude: 5,
+    baseHeight: 0,
     treeType: 'spruce',
-    treeDensity: 0.01,
+    treeDensity: 0.012,
     waterLevel: -1,
     fogColor: [0.89, 0.945, 0.992],
     fogDensity: 0.018,
     temperature: -0.8,
+    grassColor: [0.75, 0.82, 0.85],
+    foliageColor: [0.55, 0.65, 0.72],
+    skyModColor: [0.85, 0.90, 0.98],
+    spawnWeight: 0.6,
   },
-  [BiomeID.MARSH]: {
-    id: BiomeID.MARSH,
-    name: 'Sunken Marsh',
-    surfaceBlock: 8, // MUD
-    subSurfaceBlock: 8, // MUD
-    underwaterBlock: 8,
-    amplitude: 3,
-    treeType: 'none',
-    treeDensity: 0,
-    waterLevel: 22,
-    fogColor: [0.306, 0.204, 0.180],
-    fogDensity: 0.028,
-    temperature: 0.1,
-  },
-  [BiomeID.CRYSTAL_CAVERNS]: {
-    id: BiomeID.CRYSTAL_CAVERNS,
-    name: 'Crystal Caverns',
-    surfaceBlock: 9, // CRYSTAL
-    subSurfaceBlock: 3, // STONE
-    underwaterBlock: 3,
-    amplitude: 10,
-    treeType: 'crystal',
-    treeDensity: 0.012,
+  [BiomeID.MOUNTAINS]: {
+    id: BiomeID.MOUNTAINS,
+    name: 'Rocky Mountains',
+    surfaceBlock: BlockID.STONE,
+    subSurfaceBlock: BlockID.STONE,
+    underwaterBlock: BlockID.STONE,
+    amplitude: 30,
+    baseHeight: 10,
+    treeType: 'spruce',
+    treeDensity: 0.005,
     waterLevel: -1,
-    fogColor: [0.290, 0.078, 0.549],
-    fogDensity: 0.022,
-    temperature: 0.0,
+    fogColor: [0.75, 0.78, 0.82],
+    fogDensity: 0.014,
+    temperature: -0.3,
+    grassColor: [0.35, 0.45, 0.35],
+    foliageColor: [0.20, 0.35, 0.20],
+    skyModColor: [0.80, 0.82, 0.88],
+    spawnWeight: 0.4,
   },
 };

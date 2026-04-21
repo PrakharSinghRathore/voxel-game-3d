@@ -38,8 +38,10 @@ const FACE_NORMALS = [
 const BASE_UVS = [[0,0],[0,1],[1,1],[1,0]];
 
 // Block properties (simplified for worker)
-const TRANSPARENT_BLOCKS = new Set([0, 7, 11, 12, 13, 22, 23, 25]);
-const SOLID_BLOCKS = new Set([1,2,3,4,5,6,8,9,10,14,15,16,17,18,19,20,21,24,26]);
+// Transparent: AIR(0), ICE(7), LAVA(11), WATER(12), LEAVES(13), PORTAL_ACTIVE(21), LILY_PAD(22), SPRUCE_LEAVES(24)
+const TRANSPARENT_BLOCKS = new Set([0, 7, 11, 12, 13, 21, 22, 24]);
+// Solid: everything except AIR, WATER, LAVA, PORTAL_ACTIVE, LILY_PAD
+const SOLID_BLOCKS = new Set([1,2,3,4,5,6,7,8,9,10,14,15,16,17,18,19,20,23,25,26]);
 
 function isTransparent(id) { return TRANSPARENT_BLOCKS.has(id); }
 function isSolid(id) { return SOLID_BLOCKS.has(id); }
@@ -62,16 +64,49 @@ function getVoxelSafe(voxels, neighbors, x, y, z) {
   return nVoxels[lx + lz * CHUNK_SIZE + y * CHUNK_SIZE * CHUNK_SIZE];
 }
 
-// Atlas tile mapping
+// Atlas tile mapping — must match BLOCK_DEFS in types/blocks.ts exactly
+// BlockID enum: AIR=0, GRASS=1, DIRT=2, STONE=3, SAND=4, SANDSTONE=5, SNOW=6,
+//   ICE=7, MUD=8, CRYSTAL=9, GLOWSTONE=10, LAVA=11, WATER=12, WOOD=13,
+//   LEAVES=14, CACTUS=15, BEDROCK=16, COAL_ORE=17, IRON_ORE=18, GOLD_ORE=19,
+//   DIAMOND_ORE=20, PORTAL_FRAME=21, PORTAL_ACTIVE=22, LILY_PAD=23,
+//   SPRUCE_WOOD=24, SPRUCE_LEAVES=25, PACKED_ICE=26
 const ATLAS_MAP = {
-  0: [0,0], 1: [0,0], 2: [2,0], 3: [3,0], 4: [4,0], 5: [5,0],
-  6: [6,0], 7: [7,0], 8: [8,0], 9: [9,0], 10: [10,0], 11: [11,0],
-  12: [0,0], 13: [13,0], 14: [14,0], 15: [15,0], 16: [0,1],
-  17: [1,1], 18: [2,1], 19: [3,1], 20: [4,1], 21: [5,1], 22: [6,1],
-  23: [7,1], 24: [8,1], 25: [9,1], 26: [10,1],
+  0: [0,0],   // AIR (unused)
+  1: [0,0],   // GRASS top
+  2: [2,0],   // DIRT
+  3: [3,0],   // STONE
+  4: [4,0],   // SAND
+  5: [5,0],   // SANDSTONE
+  6: [6,0],   // SNOW
+  7: [7,0],   // ICE
+  8: [8,0],   // MUD
+  9: [9,0],   // CRYSTAL
+  10: [10,0],  // GLOWSTONE
+  11: [11,0],  // LAVA
+  12: [0,0],   // WATER (rendered separately)
+  13: [12,0],  // WOOD
+  14: [13,0],  // LEAVES
+  15: [14,0],  // CACTUS
+  16: [15,0],  // BEDROCK
+  17: [0,1],   // COAL_ORE
+  18: [1,1],   // IRON_ORE
+  19: [2,1],   // GOLD_ORE
+  20: [3,1],   // DIAMOND_ORE
+  21: [4,1],   // PORTAL_FRAME
+  22: [5,1],   // PORTAL_ACTIVE
+  23: [6,1],   // LILY_PAD
+  24: [7,1],   // SPRUCE_WOOD
+  25: [8,1],   // SPRUCE_LEAVES
+  26: [9,1],   // PACKED_ICE
 };
-const SIDE_MAP = { 1: [1,0] }; // grass side
-const BOTTOM_MAP = { 1: [2,0] }; // grass bottom
+// Side face textures (for blocks with different side texture)
+const SIDE_MAP = {
+  1: [1,0],   // GRASS side → grass_side tile at [1,0]
+};
+// Bottom face textures
+const BOTTOM_MAP = {
+  1: [2,0],   // GRASS bottom → dirt tile at [2,0]
+};
 
 self.onmessage = function(e) {
   const { chunkX, chunkZ, voxels, neighbors } = e.data;
@@ -140,10 +175,16 @@ self.onmessage = function(e) {
             ao[v] = 1.0 - (s1 + s2 + cn) * 0.2;
           }
 
-          // UV
+          // UV — select atlas tile based on face direction
           let atlasInfo = ATLAS_MAP[block] || [0, 0];
-          if (fi >= 1 && fi <= 4 && SIDE_MAP[block]) atlasInfo = SIDE_MAP[block];
-          if (fi === 3 && BOTTOM_MAP[block]) atlasInfo = BOTTOM_MAP[block];
+          // Side faces: +X(0), -X(1), +Z(4), -Z(5)
+          if ((fi === 0 || fi === 1 || fi === 4 || fi === 5) && SIDE_MAP[block]) {
+            atlasInfo = SIDE_MAP[block];
+          }
+          // Bottom face: -Y(3)
+          if (fi === 3 && BOTTOM_MAP[block]) {
+            atlasInfo = BOTTOM_MAP[block];
+          }
           const uvOffX = atlasInfo[0] / ATLAS_TILES;
           const uvOffY = atlasInfo[1] / ATLAS_TILES;
           const uvSz = 1 / ATLAS_TILES;

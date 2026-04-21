@@ -17,7 +17,6 @@ export class FogSystem {
 
   constructor(scene: THREE.Scene) {
     this.scene = scene;
-    // Use linear fog for better distance control
     scene.fog = new THREE.Fog(0xC8E6C9, 50, 250);
     this.currentColor.set(0xC8E6C9);
     this.targetColor.set(0xC8E6C9);
@@ -26,8 +25,42 @@ export class FogSystem {
   setBiomeFog(biome: BiomeID): void {
     const def = BIOME_DEFS[biome];
     this.targetColor.setRGB(def.fogColor[0], def.fogColor[1], def.fogColor[2]);
-    this.targetNear = 60;
-    this.targetFar = 220;
+
+    // Adjust fog distance based on biome type
+    switch (biome) {
+      case BiomeID.OCEAN:
+        this.targetNear = 40;
+        this.targetFar = 180;
+        break;
+      case BiomeID.BEACH:
+        this.targetNear = 60;
+        this.targetFar = 240;
+        break;
+      case BiomeID.DESERT:
+        this.targetNear = 50;
+        this.targetFar = 200; // Shorter due to sand haze
+        break;
+      case BiomeID.JUNGLE:
+        this.targetNear = 40;
+        this.targetFar = 160; // Dense foliage reduces visibility
+        break;
+      case BiomeID.DARK_FOREST:
+        this.targetNear = 30;
+        this.targetFar = 140; // Very limited visibility
+        break;
+      case BiomeID.MOUNTAINS:
+        this.targetNear = 60;
+        this.targetFar = 280; // Clear mountain air
+        break;
+      case BiomeID.SNOWY_PLAINS:
+        this.targetNear = 45;
+        this.targetFar = 190; // Snow haze
+        break;
+      default:
+        this.targetNear = 60;
+        this.targetFar = 220;
+        break;
+    }
   }
 
   setCaveFog(): void {
@@ -47,7 +80,6 @@ export class FogSystem {
     this.currentFar += (this.targetFar - this.currentFar) * lerpSpeed;
 
     if (this.scene.fog instanceof THREE.Fog) {
-      // Tint fog with sky color at horizon for seamless blending
       const fogColor = this.currentColor.clone();
 
       // At night, fog becomes darker

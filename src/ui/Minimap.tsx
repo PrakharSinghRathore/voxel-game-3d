@@ -8,11 +8,16 @@ interface MinimapProps {
 }
 
 const BIOME_COLORS: Record<BiomeID, string> = {
+  [BiomeID.OCEAN]: '#1565C0',
+  [BiomeID.BEACH]: '#FDD835',
   [BiomeID.PLAINS]: '#4CAF50',
-  [BiomeID.DESERT]: '#FDD835',
-  [BiomeID.TUNDRA]: '#E0E0E0',
-  [BiomeID.MARSH]: '#4E342E',
-  [BiomeID.CRYSTAL_CAVERNS]: '#9C27B0',
+  [BiomeID.FOREST]: '#2E7D32',
+  [BiomeID.DARK_FOREST]: '#1B5E20',
+  [BiomeID.SAVANNA]: '#8BC34A',
+  [BiomeID.DESERT]: '#F9A825',
+  [BiomeID.JUNGLE]: '#388E3C',
+  [BiomeID.SNOWY_PLAINS]: '#E0E0E0',
+  [BiomeID.MOUNTAINS]: '#78909C',
 };
 
 export const Minimap: React.FC<MinimapProps> = ({ playerX, playerZ, getBiomeAt }) => {
